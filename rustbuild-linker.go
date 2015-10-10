@@ -17,23 +17,29 @@ type Config struct {
 	Api_secret string
 	Api_key string
 	Client_token string
-	App_folder string
-	Socket_file string
+	Context_root string
+	Server_listen string
+	Server_port string
 }
 
 // The struct to store the configuration data
 var config Config
 // 12 hour caching that cleans up every 15 minutes
-var c *cache.Cache
+var cache_instance *cache.Cache
 //Link to dropbox
 var db *dropbox.Dropbox
+
+var do_not_include []string
 
 func main() {
 	var err error
 
 	config = Config{}
-	c = cache.New(12*time.Hour, 15*time.Minute)
+	cache_instance = cache.New(12*time.Hour, 15*time.Minute)
 	db = dropbox.NewDropbox()
+
+	do_not_include = []string{}
+	do_not_include = append(do_not_include, ".txt")
 
 	data, read_err := ioutil.ReadFile("config.yml")
 	if read_err != nil {
@@ -74,21 +80,42 @@ func main() {
 	api := rest.NewApi()
     api.Use(rest.DefaultDevStack...)
     router, err := rest.MakeRouter(
-        rest.Get("/#arch/#software/#version/#target", lookup_target),
+    	//rest.Get("/", list_arch),
+    	//rest.Get("/#arch", list_software),
+    	//rest.Get("/#arch/#software", list_versions),
+    	//rest.Get("/#arch/#software/#version", list_targets),
+        rest.Get(strings.Join([]string{"/",config.Context_root,"/#arch/#software/#version/#target"},""), lookup_target),
     )
     if err != nil {
         log.Fatal(err)
     }
     api.SetApp(router)
-    log.Fatal(http.ListenAndServe(":8080", api.MakeHandler()))
+    s := []string{}
+    s = append(s, config.Server_listen)
+    s = append(s, config.Server_port)
+    server_listen := strings.Join(s, ":")
+    log.Fatal(http.ListenAndServe(server_listen, api.MakeHandler()))
 }
 
-func lookup_target(w rest.ResponseWriter, req *rest.Request) {
-	arch := req.PathParam("arch")
-	software := req.PathParam("software")
-	version := req.PathParam("version")
-	target := req.PathParam("target")
-    w.WriteJson(map[string]string{"arch": arch, "software": software, "version": version, "target": target})
+// func list_targets(w rest.ResponseWriter, r *rest.Request) {
+// 	arch := r.PathParam("arch")
+// 	software := r.PathParam("software")
+// 	version := r.PathParam("version")
+// 	w.WriteJson(map[string]string{"arch": arch, "software": software, "version": version})
+// }
+
+func lookup_target(w rest.ResponseWriter, r *rest.Request) {
+	arch := r.PathParam("arch")
+	software := r.PathParam("software")
+	version := r.PathParam("version")
+	//target := r.PathParam("target")
+
+	latest := get_latest(arch,software,version)
+	latest_link := get_link(cache_instance, db, latest.Path)
+
+	w.Header().Set("Location", latest_link.URL)
+  	w.WriteHeader(302)
+    //w.WriteJson(map[string]string{"arch": arch, "software": software, "version": version, "target": target, "latest": latest.Path, "latest_link": latest_link.URL})
 }
 
 /*
@@ -121,7 +148,7 @@ func get(cache *cache.Cache, db *dropbox.Dropbox, path string, directories bool)
 	data, found := cache.Get(cache_path)
     if found {
     	if cached_paths, ok := data.([]dropbox.Entry); ok {
-    		fmt.Printf("Loaded from cache")
+    		//fmt.Printf("Loaded from cache")
 		    return (cached_paths)
 		} else {
 			log.Fatal("Unable to retrieve from cache")
@@ -141,7 +168,15 @@ func get(cache *cache.Cache, db *dropbox.Dropbox, path string, directories bool)
 			}
 		} else {
 			if ! entry.IsDir {
-				paths = append(paths, entry)
+				include := true
+				for _,lookup := range do_not_include {
+					if strings.Contains(entry.Path, lookup) {
+						include = false
+					}
+				}
+				if include {
+					paths = append(paths, entry)
+				}
 			}
 		}
 	}
@@ -158,4 +193,46 @@ func get_link(cache *cache.Cache, db *dropbox.Dropbox, path string) *dropbox.Lin
 		log.Fatal(err)
 	}
 	return link
+}
+
+/*
+	Use the arch, software and version to find the latest
+*/
+func get_latest(arch string, software string, version string) dropbox.Entry {
+	var target_path string
+	if version == "nightly" {
+		target_path = arch
+	} else {
+		directories := get_directories(cache_instance, db, arch)
+		mTime := time.Time(dropbox.DBTime{})
+		var latest_directory dropbox.Entry	
+		for _,dir := range directories {
+			if strings.Contains(dir.Path, version) {
+				if time.Time(dir.Modified).After(mTime) {
+					mTime = time.Time(dir.Modified)
+					latest_directory = dir
+				}
+			}
+		}
+		target_path = latest_directory.Path
+	}
+
+	s := []string{}
+	s = append(s, software)
+	s = append(s, "-")
+	search := strings.Join(s,"")
+
+	mTime := time.Time(dropbox.DBTime{})
+	var latest_file dropbox.Entry
+	files := get_files(cache_instance, db, target_path)
+	for _,file := range files {
+		if strings.Contains(file.Path, search) {
+			if time.Time(file.Modified).After(mTime) {
+				mTime = time.Time(file.Modified)
+				latest_file = file
+			}
+		}
+	}
+
+	return latest_file
 }
