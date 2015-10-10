@@ -1,0 +1,6 @@
+---
+pi_secret: Secret Key
+api_key: API Key
+app_folder: RustBuild
+socket_file: /tmp/rustbuild-linker.sock
+...
