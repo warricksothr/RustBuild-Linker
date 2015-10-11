@@ -181,12 +181,14 @@ func list_targets(w rest.ResponseWriter, r *rest.Request) {
 	// Doesn't need to be cached, as its calls are already cached.
 
 	targets := []string{"latest"}
-	target_path := get_target_path(arch, software, version)
+	target_path := get_target_path(arch, version)
 	files := get_files(cache_instance, db, target_path)
 	for _, file := range files {
 		archive := new(Archive)
 		archive = archive.Init(file.Path)
-		targets = append(targets, archive.Tag)
+		if (archive.Software == software) {
+			targets = append(targets, archive.Tag)
+		}
 	}
 	w.WriteJson(targets)
 }
@@ -279,7 +281,7 @@ func get(cache *cache.Cache, db *dropbox.Dropbox, path string, directories bool)
 /*
 	Divine the correct target path from the provided info
 */
-func get_target_path(arch string, software string, version string) string {
+func get_target_path(arch string, version string) string {
 	var target_path string
 	if version == "nightly" {
 		target_path = arch
@@ -329,7 +331,7 @@ func get_target(arch string, software string, version string, target string) (dr
 	if target == "latest" {
 		return get_latest(arch, software, version), true
 	} else {
-		target_path := get_target_path(arch, software, version)
+		target_path := get_target_path(arch, version)
 		files := get_files(cache_instance, db, target_path)
 		for _, file := range files {
 			archive := new(Archive)
@@ -348,7 +350,7 @@ func get_target(arch string, software string, version string, target string) (dr
 	Use the arch, software and version to find the latest
 */
 func get_latest(arch string, software string, version string) dropbox.Entry {
-	target_path := get_target_path(arch, software, version)
+	target_path := get_target_path(arch, version)
 
 	s := []string{}
 	s = append(s, software)
