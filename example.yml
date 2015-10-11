@@ -1,6 +1,6 @@
 api_secret: Secret Key
 api_key: API Key
 client_token: token
-context_root: RustBuild
+context_root: /RustBuild
 server_listen: 127.0.0.1
 server_port: 8080
