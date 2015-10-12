@@ -205,6 +205,7 @@ func link_target(w rest.ResponseWriter, r *rest.Request) {
 		w.Header().Set("Location", target_link)
 		w.WriteHeader(302)
 	} else {
+		w.WriteHeader(404)
 		w.WriteJson(map[string]string{"error": "Target Not Found"})
 	}
 }
