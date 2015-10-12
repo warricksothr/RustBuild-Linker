@@ -329,7 +329,7 @@ func get_link(cache *cache.Cache, db *dropbox.Dropbox, path string) string {
 
 func get_target(arch string, software string, version string, target string) (dropbox.Entry, bool) {
 	if target == "latest" {
-		return get_latest(arch, software, version), true
+		return get_latest(arch, software, version)
 	} else {
 		target_path := get_target_path(arch, version)
 		files := get_files(cache_instance, db, target_path)
@@ -349,7 +349,7 @@ func get_target(arch string, software string, version string, target string) (dr
 /*
 	Use the arch, software and version to find the latest
 */
-func get_latest(arch string, software string, version string) dropbox.Entry {
+func get_latest(arch string, software string, version string) (dropbox.Entry, bool) {
 	target_path := get_target_path(arch, version)
 
 	s := []string{}
@@ -368,6 +368,9 @@ func get_latest(arch string, software string, version string) dropbox.Entry {
 			}
 		}
 	}
-
-	return latest_file
+	if latest_file.Path == "" {
+		return latest_file, false
+	} else {
+		return latest_file, true
+	}
 }
