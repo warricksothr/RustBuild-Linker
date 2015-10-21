@@ -10,8 +10,9 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
-	"strings"
-	"time"
+	"sort"
+    "strings"
+    "time"
 )
 
 type Config struct {
@@ -34,6 +35,21 @@ type BasicResult struct {
 	Tag  string
 	Date string
 }
+
+// Allow BasicResults to be sorted
+func (slice BasicResults) Len() int {
+    return len(slice)
+}
+
+func (slice BasicResults) Less(i, j int) bool {
+    return slice[i].Date > slice[j].Date
+}
+
+func (slice BasicResults) Swap(i,j int) {
+    slice[i], slice[j] = slice[j], slice[i]
+}
+
+type BasicResults []BasicResult
 
 func (a Archive) Init(path string) *Archive {
 	_, filename := filepath.Split(path)
@@ -185,17 +201,31 @@ func list_targets(w rest.ResponseWriter, r *rest.Request) {
 
 	// Doesn't need to be cached, as its calls are already cached.
 
-	targets := []BasicResult{BasicResult{"latest", ""}}
-	target_path := get_target_path(arch, version)
+	targets := BasicResults{}
+    latest_date := time.Time{}
+    target_path := get_target_path(arch, version)
 	files := get_files(cache_instance, db, target_path)
 	for _, file := range files {
 		archive := new(Archive)
 		archive = archive.Init(file.Path)
 		if archive.Software == software {
+            parsed_time, err := time.Parse("2006-01-02", archive.Date)
+	        if err != nil {
+		        log.Println(err)
+		        parsed_time = time.Time{}
+	        }
+            if parsed_time.After(latest_date) {
+                latest_date = parsed_time
+            }
 			targets = append(targets, BasicResult{archive.Tag, archive.Date})
 		}
 	}
-	w.WriteJson(targets)
+	targets = append(targets, BasicResult{"latest", latest_date.Format("2006-01-02")})
+
+    // Sort the targets by date descending.
+    sort.Sort(targets)
+
+    w.WriteJson(targets)
 }
 
 func link_target(w rest.ResponseWriter, r *rest.Request) {
