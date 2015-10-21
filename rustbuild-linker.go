@@ -30,6 +30,11 @@ type Archive struct {
 	Tag      string
 }
 
+type BasicResult struct {
+	Tag  string
+	Date string
+}
+
 func (a Archive) Init(path string) *Archive {
 	_, filename := filepath.Split(path)
 	parts := strings.Split(filename, "-")
@@ -180,14 +185,14 @@ func list_targets(w rest.ResponseWriter, r *rest.Request) {
 
 	// Doesn't need to be cached, as its calls are already cached.
 
-	targets := []string{"latest"}
+	targets := []BasicResult{BasicResult{"latest", ""}}
 	target_path := get_target_path(arch, version)
 	files := get_files(cache_instance, db, target_path)
 	for _, file := range files {
 		archive := new(Archive)
 		archive = archive.Init(file.Path)
-		if (archive.Software == software) {
-			targets = append(targets, archive.Tag)
+		if archive.Software == software {
+			targets = append(targets, BasicResult{archive.Tag, archive.Date})
 		}
 	}
 	w.WriteJson(targets)
