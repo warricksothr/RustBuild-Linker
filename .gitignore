@@ -24,6 +24,4 @@ _testmain.go
 *.prof
 
 config.yml
-rustbuild-linker
-RustBuild-Linker
-rbl_*
+builds/
