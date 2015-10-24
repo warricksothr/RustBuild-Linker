@@ -15,6 +15,9 @@ import (
 	"time"
 )
 
+/*
+    Stores the config file, read from the drive
+*/
 type Config struct {
 	Api_secret    string
 	Api_key       string
@@ -24,6 +27,9 @@ type Config struct {
 	Server_port   string
 }
 
+/*
+    Represents an archived piece of software
+*/
 type Archive struct {
 	Software string
 	Date     string
@@ -31,6 +37,22 @@ type Archive struct {
 	Tag      string
 }
 
+/*
+    Initialize an archive from a path
+*/
+func (a Archive) Init(path string) *Archive {
+	_, filename := filepath.Split(path)
+	parts := strings.Split(filename, "-")
+	a.Software = parts[0]
+	a.Version = strings.Join([]string{parts[1], parts[2]}, " ")
+	a.Date = strings.Join([]string{parts[3], parts[4], parts[5]}, "-")
+	a.Tag = parts[6]
+	return &a
+}
+
+/*
+    A basic payload struct to return endpoint information to the client
+*/
 type BasicResult struct {
 	Tag  string
 	Date string
@@ -49,17 +71,8 @@ func (slice BasicResults) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
+// Declare BasicResults as a type of slice of BasicResult items
 type BasicResults []BasicResult
-
-func (a Archive) Init(path string) *Archive {
-	_, filename := filepath.Split(path)
-	parts := strings.Split(filename, "-")
-	a.Software = parts[0]
-	a.Version = strings.Join([]string{parts[1], parts[2]}, " ")
-	a.Date = strings.Join([]string{parts[3], parts[4], parts[5]}, "-")
-	a.Tag = parts[6]
-	return &a
-}
 
 // The struct to store the configuration data
 var config Config
@@ -67,10 +80,13 @@ var config Config
 // 12 hour caching that cleans up every 15 minutes
 var cache_instance *cache.Cache
 
-//Link to dropbox
+//The api link to dropbox
 var db *dropbox.Dropbox
 
-var do_not_include []string
+// slice that stores the list of items to not include in the searches
+var do_not_include := []string{}
+// Ignore all .txt files
+do_not_include = append(do_not_include, ".txt")
 
 func main() {
 	var err error
@@ -78,9 +94,6 @@ func main() {
 	config = Config{}
 	cache_instance = cache.New(12*time.Hour, 15*time.Minute)
 	db = dropbox.NewDropbox()
-
-	do_not_include = []string{}
-	do_not_include = append(do_not_include, ".txt")
 
 	data, read_err := ioutil.ReadFile("config.yml")
 	if read_err != nil {
@@ -119,13 +132,21 @@ func main() {
 
 	// setup server to link
 	api := rest.NewApi()
+    statusMw := &rest.StatusMiddleware{}
+    api.Use(statusMw)
 	api.Use(rest.DefaultDevStack...)
 	router, err := rest.MakeRouter(
-		rest.Get(strings.Join([]string{config.Context_root, ""}, "/"), list_arch),
+		// Status endpoint for monitoring
+        rest.Get("/.status", func(w rest.ResponseWriter, r *rest.Request) {
+            w.WriteJson(statusMw.GetStatus())
+        }),
+        // The JSON endpoints for data about the next endpoint
+        rest.Get(strings.Join([]string{config.Context_root, ""}, "/"), list_arch),
 		rest.Get(strings.Join([]string{config.Context_root, "#arch"}, "/"), list_software),
 		rest.Get(strings.Join([]string{config.Context_root, "#arch/#software"}, "/"), list_versions),
 		rest.Get(strings.Join([]string{config.Context_root, "#arch/#software/#version"}, "/"), list_targets),
-		rest.Get(strings.Join([]string{config.Context_root, "#arch/#software/#version/#target"}, "/"), link_target),
+		// Endpoint that redirects the client
+        rest.Get(strings.Join([]string{config.Context_root, "#arch/#software/#version/#target"}, "/"), link_target),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -138,6 +159,10 @@ func main() {
 	log.Fatal(http.ListenAndServe(server_listen, api.MakeHandler()))
 }
 
+/*
+    Return a list of available architectures as reported by
+    the top dropbox directories of the app folder
+*/
 func list_arch(w rest.ResponseWriter, r *rest.Request) {
 	// Use caching to reduce calls to the Dropbox API
 	cache_path := "arches"
@@ -160,6 +185,10 @@ func list_arch(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(arches)
 }
 
+/*
+    Return a list of the software that exists under a particular
+    architecture
+*/
 func list_software(w rest.ResponseWriter, r *rest.Request) {
 	arch := r.PathParam("arch")
 
@@ -190,17 +219,23 @@ func list_software(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(keys)
 }
 
+/*
+    List available versions for a specific piece of software
+*/
 func list_versions(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson([]string{"nightly", "beta", "stable"})
 }
 
+/*
+    Return a list of available targets for a software and a version.
+    These targets represent the possible redirects that are available.
+*/
 func list_targets(w rest.ResponseWriter, r *rest.Request) {
 	arch := r.PathParam("arch")
 	software := r.PathParam("software")
 	version := r.PathParam("version")
 
 	// Doesn't need to be cached, as its calls are already cached.
-
 	targets := BasicResults{}
 	latest_date := time.Time{}
 	target_path := get_target_path(arch, version)
@@ -228,6 +263,9 @@ func list_targets(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(targets)
 }
 
+/*
+    Redirect the client to the link, OR return a 404 for an undefined target.
+*/
 func link_target(w rest.ResponseWriter, r *rest.Request) {
 	arch := r.PathParam("arch")
 	software := r.PathParam("software")
@@ -363,6 +401,11 @@ func get_link(cache *cache.Cache, db *dropbox.Dropbox, path string) string {
 	return link.URL
 }
 
+/*
+    Take a target and return the appropriate Entry item for that target.
+    OR, return an empty Entry and a boolean flag that indicates the the
+    requested target doesn't exist
+*/
 func get_target(arch string, software string, version string, target string) (dropbox.Entry, bool) {
 	if target == "latest" {
 		return get_latest(arch, software, version)
