@@ -89,7 +89,7 @@ var do_not_include []string
 func main() {
 	var err error
 
-	do_not_include := []string{}
+	do_not_include = []string{}
 	// Ignore all .txt files
 	do_not_include = append(do_not_include, ".txt")
 
