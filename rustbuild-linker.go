@@ -64,7 +64,7 @@ func (slice BasicResults) Len() int {
 }
 
 func (slice BasicResults) Less(i, j int) bool {
-	return slice[i].Date > slice[j].Date
+	return (slice[i].Date > slice[j].Date) && slice[i].Tag != "latest"
 }
 
 func (slice BasicResults) Swap(i, j int) {
