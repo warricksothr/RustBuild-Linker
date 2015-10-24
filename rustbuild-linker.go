@@ -159,7 +159,7 @@ func main() {
 	s = append(s, config.Server_port)
 	server_listen := strings.Join(s, ":")
 	http.Handle(strings.Join([]string{config.Context_root, "/"}, ""), http.StripPrefix(config.Context_root, api.MakeHandler()))
-	log.Fatal(http.ListenAndServe(server_listen, api.MakeHandler()))
+	log.Fatal(http.ListenAndServe(server_listen, nil))
 }
 
 /*
