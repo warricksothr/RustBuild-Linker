@@ -139,7 +139,7 @@ func main() {
 	api.Use(rest.DefaultDevStack...)
 	router, err := rest.MakeRouter(
 		// Status endpoint for monitoring
-		rest.Get(strings.Join([]string{config.Context_root, "/.status"}, func(w rest.ResponseWriter, r *rest.Request) {
+		rest.Get(strings.Join([]string{config.Context_root, ".status"}, "/"), func(w rest.ResponseWriter, r *rest.Request) {
 			w.WriteJson(statusMw.GetStatus())
 		}),
 		// The JSON endpoints for data about the next endpoint
