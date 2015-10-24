@@ -139,16 +139,16 @@ func main() {
 	api.Use(rest.DefaultDevStack...)
 	router, err := rest.MakeRouter(
 		// Status endpoint for monitoring
-		rest.Get(strings.Join([]string{config.Context_root, ".status"}, "/"), func(w rest.ResponseWriter, r *rest.Request) {
+		rest.Get(".status", func(w rest.ResponseWriter, r *rest.Request) {
 			w.WriteJson(statusMw.GetStatus())
 		}),
 		// The JSON endpoints for data about the next endpoint
-		rest.Get(strings.Join([]string{config.Context_root, ""}, "/"), list_arch),
-		rest.Get(strings.Join([]string{config.Context_root, "#arch"}, "/"), list_software),
-		rest.Get(strings.Join([]string{config.Context_root, "#arch/#software"}, "/"), list_versions),
-		rest.Get(strings.Join([]string{config.Context_root, "#arch/#software/#version"}, "/"), list_targets),
+		rest.Get("", list_arches),
+		rest.Get("#arch", list_softwares),
+		rest.Get("#arch/#software", list_versions),
+		rest.Get("#arch/#software/#version", list_targets),
 		// Endpoint that redirects the client
-		rest.Get(strings.Join([]string{config.Context_root, "#arch/#software/#version/#target"}, "/"), link_target),
+		rest.Get("#arch/#software/#version/#target", link_target),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -158,6 +158,7 @@ func main() {
 	s = append(s, config.Server_listen)
 	s = append(s, config.Server_port)
 	server_listen := strings.Join(s, ":")
+    http.Handle(strings.Join([]string{config.Context_root, "/"}, ""), http.StripPrefix(config.Context_root, api.MakeHandler()))
 	log.Fatal(http.ListenAndServe(server_listen, api.MakeHandler()))
 }
 
@@ -165,7 +166,7 @@ func main() {
    Return a list of available architectures as reported by
    the top dropbox directories of the app folder
 */
-func list_arch(w rest.ResponseWriter, r *rest.Request) {
+func list_arches(w rest.ResponseWriter, r *rest.Request) {
 	// Use caching to reduce calls to the Dropbox API
 	cache_path := "arches"
 	data, found := cache_instance.Get(cache_path)
@@ -191,7 +192,7 @@ func list_arch(w rest.ResponseWriter, r *rest.Request) {
    Return a list of the software that exists under a particular
    architecture
 */
-func list_software(w rest.ResponseWriter, r *rest.Request) {
+func list_softwares(w rest.ResponseWriter, r *rest.Request) {
 	arch := r.PathParam("arch")
 
 	// Use caching to reduce calls to the Dropbox API
