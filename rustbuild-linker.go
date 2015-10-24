@@ -139,16 +139,16 @@ func main() {
 	api.Use(rest.DefaultDevStack...)
 	router, err := rest.MakeRouter(
 		// Status endpoint for monitoring
-		rest.Get(".status", func(w rest.ResponseWriter, r *rest.Request) {
+		rest.Get("/.status", func(w rest.ResponseWriter, r *rest.Request) {
 			w.WriteJson(statusMw.GetStatus())
 		}),
 		// The JSON endpoints for data about the next endpoint
-		rest.Get("", list_arches),
-		rest.Get("#arch", list_softwares),
-		rest.Get("#arch/#software", list_versions),
-		rest.Get("#arch/#software/#version", list_targets),
+		rest.Get("/", list_arches),
+		rest.Get("/#arch", list_softwares),
+		rest.Get("/#arch/#software", list_versions),
+		rest.Get("/#arch/#software/#version", list_targets),
 		// Endpoint that redirects the client
-		rest.Get("#arch/#software/#version/#target", link_target),
+		rest.Get("/#arch/#software/#version/#target", link_target),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -158,7 +158,7 @@ func main() {
 	s = append(s, config.Server_listen)
 	s = append(s, config.Server_port)
 	server_listen := strings.Join(s, ":")
-    http.Handle(strings.Join([]string{config.Context_root, "/"}, ""), http.StripPrefix(config.Context_root, api.MakeHandler()))
+	http.Handle(strings.Join([]string{config.Context_root, "/"}, ""), http.StripPrefix(config.Context_root, api.MakeHandler()))
 	log.Fatal(http.ListenAndServe(server_listen, api.MakeHandler()))
 }
 
