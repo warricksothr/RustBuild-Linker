@@ -230,7 +230,20 @@ func list_softwares(w rest.ResponseWriter, r *rest.Request) {
    List available versions for a specific piece of software
 */
 func list_versions(w rest.ResponseWriter, r *rest.Request) {
-	w.WriteJson([]string{"nightly", "beta", "stable"})
+	arch := r.PathParam("arch")
+	versions := []string{"nightly", "beta", "stable"}
+	// get the numbered versions available
+	db_directories := get_directories(cache_instance, db, arch)
+	for _, dir := range db_directories {
+		version_path := strings.Split(dir.Path, "/")
+		version := version_path[len(version_path)-1]
+		if version != "snapshots" {
+			versions = append(versions, version)
+		}
+	}
+	// Filter things folders we don't want in the versions out
+
+	w.WriteJson(versions)
 }
 
 /*
