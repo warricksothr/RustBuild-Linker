@@ -24,4 +24,7 @@ _testmain.go
 *.prof
 
 config.yml
+deploy.crt
+deploy_config.sh
+latest_build
 builds/
