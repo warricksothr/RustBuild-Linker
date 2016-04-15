@@ -16,5 +16,8 @@ fi
 
 LATEST_BUILD=$(ls -t builds/rbl_* | head -1)
 LATEST_BUILD_NAME=$(basename $LATEST_BUILD)
+echo "Copying the latest build [$LATEST_BUILD_NAME] to the host [$DEPLOY_HOST]"
 scp -i $DEPLOY_USER_CERT -P $DEPLOY_PORT $LATEST_BUILD ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_BUILD_TARGET}/
+echo "Linking the latest build on the host"
 ssh -i $DEPLOY_USER_CERT -p $DEPLOY_PORT ${DEPLOY_USER}@${DEPLOY_HOST} "ln -sf '${DEPLOY_BUILD_TARGET}/${LATEST_BUILD_NAME}' ${DEPLOY_LINK_TARGET}"
+echo "Deployment Complete!"
