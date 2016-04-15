@@ -3,10 +3,12 @@
 set -x
 set -e
 
+GOPATH="$PWD:$GOPATH"
+
 go clean
 go fmt
 go get || true
-go build -o "rbl_$(git rev-parse --short HEAD)_$(date +%Y-%m-%d)" -p $(($(nproc)-1)) -ldflags "-s" rustbuild-linker.go
+go build -o "rbl_$(date +%Y-%m-%d)_$(git rev-parse --short HEAD)" -p $(($(nproc)-1)) -ldflags "-s" rustbuild-linker.go
 
 mkdir -p builds
 mv rbl_* builds
